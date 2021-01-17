@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>
+    Leaflet Tiler
+  </title>
+  <meta charset="utf-8">
+
+  <!--script type="text/javascript" src="file:///{{ new_dir }}leaflet.js"></script-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.4.0/leaflet.js" integrity="sha256-6BZRSENq3kxI4YYBDqJ23xg0r1GwTHEpvp3okdaIqBw=" crossorigin="anonymous"></script>
+  <!--link rel="stylesheet" type="text/css" href="file:///{{ new_dir }}/styles/leaflet.css"-->
+  <link rel="stylesheet" type="text/css" href="http://127.0.0.1:8000/templates/styles/leaflet.css">
+
+  <!--script type="text/javascript" src="file:///{{ new_dir }}/leaflet_draw.js"></script-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" integrity="sha256-siofc4Uwjlra3YWkwthOn8Uj69cNN4aMug/iOHNiRgs=" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" integrity="sha256-XzD3RpaHPv7lzX9qt+2n1j5cWj48O24KsgaGYpKN8x8=" crossorigin="anonymous" />
+  <!--link rel="stylesheet" type="text/css" href="file:///{{ new_dir }}/styles/leaflet-draw.css"-->
+
+  <!--script type="text/javascript" src="file:///{{ new_dir }}/jquery/jQuery_v3.4.0.js"></script-->
+  <script crossorigin="anonymous" integrity=
+    "sha256-BJeo0qm959uMBGb65z40ejJYGSgR7REI4+CW1fNKwOg=" src="https://code.jquery.com/jquery-3.4.0.min.js">
+  </script>
+
+  <link rel="stylesheet" href="http://127.0.0.1:8000/templates/opacity_controls/Control.Opacity.css"/>
+  <script src="http://127.0.0.1:8000/templates/opacity_controls/Control.Opacity.js"></script>
+
+  <script src="http://127.0.0.1:8000/templates/jquery/OpacitySliderJQuery/jquery-1.9.1.js"></script>
+  <script src="http://127.0.0.1:8000/templates/jquery/OpacitySliderJQuery/jquery-ui-1.10.3.custom.min.js"></script>
+  <link rel="stylesheet" href="http://127.0.0.1:8000/templates/jquery/OpacitySliderJQuery/jquery-ui-1.10.3.custom.min.css"/>
+</head>
+
+<body>
+    <div id="serverstatus" style="height:5mm"></div>
+  
+    <div class="dropdown", id="selector", style="padding: 10px">
+    <label for="slices">Select a slice number: </label>
+      <select id="slices-dropdown" onchange="displaySlider()">
+        <option disabled selected>Select a Slice</option>
+        <option>1</option>
+        {% for s in range(num_slices - 1) %}
+        <option>{{ s+2 }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  
+    <div class="dropdown", id="selector", style="padding: 10px">
+    <label for="layers">Select a layer to adjust:</label>
+      <select id="layers-dropdown" onchange="displaySlider()">
+        <option disabled selected>Select a Layer</option>
+        <option>Hide All</option>
+        {% for n in layers %}
+        <option>{{ n }}</option>
+        {% endfor %}
+        <option>View All</option>
+      </select>
+    </div>
+  
+    <!-- brightness, contrast, opacity, hue sliders -->
+    <table style="width:100%" id="image-sliders">
+      <div style="width:100%; display: table;">
+      {% for s in range(num_slices) %}
+        {% for layer in layers %}
+          <tr>
+            <tbody id="{{ s+1 }}_{{ layer }}">
+              <td>Slice {{ s+1 }}, {{ layer }} </td>
+              <td>
+                <input type="range" min="0" max="200" value="100" class="slider" id="{{ s+1 }}_{{ layer }}-brightness-slider">
+                <span>Brightness: </span><span id='{{ s+1 }}_{{ layer }}-brightness-value'>100%</span>
+              </td>
+              <td>
+                <input type="range" min="0" max="200" value="100" class="slider" id="{{ s+1 }}_{{ layer }}-contrast-slider">
+                <span>Contrast: </span><span id='{{ s+1 }}_{{ layer }}-contrast-value'>100%</span>
+              </td>
+              <td>
+                <input type="range" min="0" max="100" value="100" class="slider" id="{{ s+1 }}_{{ layer }}-opacity-slider">
+                <span>Opacity: </span><span id='{{ s+1 }}_{{ layer }}-opacity-value'>100%</span>
+              </td>
+              <td>
+                <input type="range" min="0" max="360" value="0" class="slider" id="{{ s+1 }}_{{ layer }}-hue-slider">
+                <span>Hue: </span><span id='{{ s+1 }}_{{ layer }}-hue-value'>0 degrees</span>
+              </td>
+            </tbody>
+          </tr>
+        {% endfor %} 
+      {% endfor %} 
+      </div>
+    </table>
+  
+    <div id="map" style="width: 100hh; height: 98vh; border: 1px solid #ccc">
+    </div>
+  
+    <script>
+        function postJSONData(JSONData, resID) {
+            $.ajax({
+            type: "POST",
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader('Authorization', 'Basic ' + btoa('john:matrix'));
+            },  
+            url: "https://data.sarlab.ca/annotation/storeJSON/" + resID,
+            contentType: "application/json",
+            data: JSONData
+            })
+            .done(function () {
+                $("#serverstatus")[0].innerHTML = "SAVED";
+            })
+            .fail(function () {
+                alert("error");
+            })
+            .always(function () {
+                // whatever we'd do in all cases
+            });
+        };
+        function getJSONData(resID, fGroup) {
+            $.ajax({
+            type: "GET",
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader('Authorization', 'Basic ' + btoa('john:matrix'));
+            },  
+            url: "https://data.sarlab.ca/annotation/readJSON/" + resID,
+            dataType: 'json'
+            })
+            .done(function (data) {
+                $("#serverstatus")[0].innerHTML = "Server Data Loaded.";
+                L.geoJson(data["features"], {
+                onEachFeature: function (feature, layer) {
+                    fGroup.addLayer(layer);
+                }
+                });
+                $("#serverstatus")[0].innerHTML = "Loaded Annotations added to Image.";
+            })
+            .fail(function (data) {
+                if (data["status"] == 404) {
+                $("#serverstatus")[0].innerHTML = "No annotations found on Server.";
+                } else {
+                alert("Error Loading Data: "+data["status"]);
+                };
+            });
+        }
+
+        hideAllSliders();  // start off with all sliders hidden
+        var selected_slice = document.getElementById("slices-dropdown").value;
+        var background = createBackground(selected_slice);
+        var completedLayers = new Array();
+        completedLayers.push(background);
+        loadLayers(completedLayers);
+
+        // create the map
+        var map = new L.map('map', {
+            className: "mapLayer",
+            maxZoom: 5,
+            minZoom: 1,
+            crs: L.CRS.Simple,
+            layers: completedLayers,
+            zoomControl: true
+        }).setView([0, 0], 1),
+            drawnItems = L.featureGroup().addTo(map),
+            sourcelabels = L.layerGroup().addTo(map),
+            histolayer = L.tileLayer('http://127.0.0.1:8000/tiles/slices/1/background/{z}/map_{x}_{y}.png', {
+                            attribution: 'AIMlab'
+                        }).addTo(map);
+            // map.className = 'mapLayer';
+
+        function hideAllSliders() {
+            {% for s in range(num_slices) %}
+                {% for n in layers %}
+                //default: no sliders shown 
+                document.getElementById("{{ s+1 }}_{{ n }}").style.clip="rect(0px,0px,0px,0px)";
+                document.getElementById("{{ s+1 }}_{{ n }}").style.position="absolute";
+                document.getElementById("{{ s+1 }}_{{ n }}").style.overflow="hidden";
+                {% endfor %}
+            {% endfor %}
+        }
+
+
+      function loadLayers(completedLayers) {
+        {% for slicen in range(num_slices) %}
+          {% for n in layers %}
+              window.map_{{ slicen+1 }}_{{ n }} = L.tileLayer('http://127.0.0.1:8000/tiles/slices/{{ slicen+1 }}/{{ n }}/{z}/map_{x}_{y}.png', {
+                layers: '{{ n }}',
+                maxZoom: 5, // TODO: FIX MAX AND MIN ZOOM
+                minZoom: 1,
+                format: 'image/png',
+                transparent: true,
+                className: "mapLayer"
+              });
+              completedLayers.push(map_{{ slicen+1 }}_{{ n }});
+              //map_{{ slicen+1 }}_{{ n }}.addTo(map);
+          {% endfor %}
+          // TODO: name layers as a class and then in css only apply multiply blend mode to layers class instead of each layer
+        {% endfor %}
+        return completedLayers;
+      }
+  
+      // TODO: figure out how to include selected_slice variable into url!!
+      function createBackground({ selected_slice = 0 } = {}) {
+        background = L.tileLayer('http://127.0.0.1:8000/tiles/slices/0/background/{z}/map_{x}_{y}.png', {
+            layers: 'BackgroundLayer',
+            maxZoom: 5,
+            minZoom: 1,
+            format: 'image/png',
+            transparent: true,
+            className: "mapLayer" //using classnames, set each layer to multiply blend mode in css (TODO: fix!!)
+          });
+        return background;
+      }
+      
+      function displaySlider() {
+        hideAllSliders();
+        var slicenum = document.getElementById("slices-dropdown").value;
+        var selected_layer = document.getElementById("layers-dropdown").value;
+        
+        if ((slicenum === null) || (selected_layer === null)) {
+          return;
+        } else if ((slicenum === "Select a Slice") || (selected_layer === "Select a Layer")) {
+          return;
+        }
+
+        if (selected_layer == "View All") {
+          {% for n in layers %}
+            var elementID = slicenum + "_{{ n }}";
+            document.getElementById(elementID).style.clip="rect(10px,10px,10px,10px)";
+            document.getElementById(elementID).style.position="relative";
+          {% endfor %}
+        } else if (selected_layer == "Hide All") {
+          {% for n in layers %}
+            var elementID = slicenum + "_{{ n }}";
+            document.getElementById(elementID).style.clip="rect(0px,0px,0px,0px)";
+            document.getElementById(elementID).style.position="absolute";
+            document.getElementById(elementID).style.overflow="hidden";
+          {% endfor %}
+        } else { 
+          {% for n in layers %}
+            var elementID = slicenum + "_{{ n }}";
+            if (selected_layer == "{{ n }}") {
+              document.getElementById(elementID).style.clip="rect(10px,10px,10px,10px)";
+              document.getElementById(elementID).style.position="relative";
+            } else {
+              document.getElementById(elementID).style.clip="rect(0px,0px,0px,0px)";
+              document.getElementById(elementID).style.position="absolute";
+              document.getElementById(elementID).style.overflow="hidden";
+            }
+          {% endfor %}
+        }
+      };
+  
+      function returnSliceNum() {
+        var selected_slice = document.getElementById("slices-dropdown").value;
+        {% for s in range(num_slices) %}
+          if (selected_slice == {{ s+1 }}) {
+            return {{ s+1 }};
+          }
+        {% endfor %}
+        return 0;
+      }
+
+      function loadNewSlice() {
+        console.log("Entered LoadNewSlice")
+        var chosenSlice = document.getElementById("slices-dropdown").value;
+        console.log("Chosen slice: ");
+        console.log(chosenSlice);
+        var newBackground = createBackground(chosenSlice);
+        console.log("Background created.");
+        completedLayers = new Array();
+        completedLayers.push(newBackground);
+        console.log("completedLayers with just background:");
+        console.log(completedLayers);
+        loadLayers2(completedLayers, chosenSlice);
+        console.log("completedLayers with all layers from new slice:");
+        console.log(completedLayers);
+        displaySlider();
+        applySliders();
+      }
+
+
+      document.getElementById("layers-dropdown").addEventListener("change", displaySlider());
+      // document.getElementById("slices-dropdown").addEventListener("change", displaySlider());
+      //document.getElementById("slices-dropdown").addEventListener("change", loadNewSlice());
+      applySliders();
+   
+      
+  
+      function applySliders() {
+        // first remove the background from completed layers array
+        completedLayers.shift();
+
+        var count = 0;
+        {% for s in range(num_slices) %}
+          {% for n in layers %}
+            completedLayers[count].getContainer().style.filter = "hue-rotate(0deg)" + "brightness(100%)" + "contrast(100%)" + "opacity(100%)";
+            count++;
+            var slider1_{{ s+1 }}_{{ n }} = document.getElementById("{{ s+1 }}_{{ n }}-brightness-slider");
+            var slider2_{{ s+1 }}_{{ n }} = document.getElementById("{{ s+1 }}_{{ n }}-contrast-slider");
+            var slider3_{{ s+1 }}_{{ n }} = document.getElementById("{{ s+1 }}_{{ n }}-opacity-slider");
+            var slider4_{{ s+1 }}_{{ n }} = document.getElementById("{{ s+1 }}_{{ n }}-hue-slider");
+      
+            var brightnessSpan_{{ s+1 }}_{{ n }} = document.getElementById("{{ s+1 }}_{{ n }}-brightness-value");
+            var contrastSpan_{{ s+1 }}_{{ n }} = document.getElementById("{{ s+1 }}_{{ n }}-contrast-value");
+            var opacitySpan_{{ s+1 }}_{{ n }} = document.getElementById("{{ s+1 }}_{{ n }}-opacity-value");
+            var hueSpan_{{ s+1 }}_{{ n }} = document.getElementById("{{ s+1 }}_{{ n }}-hue-value");
+      
+            var brightness_{{ s+1 }}_{{ n }} = slider1_{{ s+1 }}_{{ n }}.value;
+            var contrast_{{ s+1 }}_{{ n }} = slider2_{{ s+1 }}_{{ n }}.value;
+            var opacity_{{ s+1 }}_{{ n }} = slider3_{{ s+1 }}_{{ n }}.value;
+            var hue_{{ s+1 }}_{{ n }} = slider4_{{ s+1 }}_{{ n }}.value;
+      
+            slider1_{{ s+1 }}_{{ n }}.addEventListener("input", function (e) {
+              brightness_{{ s+1 }}_{{ n }} = e.target.value;
+              brightnessSpan_{{ s+1 }}_{{ n }}.textContent = brightness_{{ s+1 }}_{{ n }} + "%";
+              map_{{ s+1 }}_{{ n }}.getContainer().style.filter = "hue-rotate(" + hue_{{ s+1 }}_{{ n }} + "deg) opacity(" + opacity_{{ s+1 }}_{{ n }} + "%) brightness(" + this.value + "%) contrast(" + contrast_{{ s+1 }}_{{ n }} + "%)";
+            });
+            slider2_{{ s+1 }}_{{ n }}.addEventListener("input", function (e) {
+              contrast_{{ s+1 }}_{{ n }} = e.target.value;
+              contrastSpan_{{ s+1 }}_{{ n }}.textContent = contrast_{{ s+1 }}_{{ n }} + "%";
+              map_{{ s+1 }}_{{ n }}.getContainer().style.filter = "hue-rotate(" + hue_{{ s+1 }}_{{ n }} + "deg) opacity(" + opacity_{{ s+1 }}_{{ n }} + "%) brightness(" + brightness_{{ s+1 }}_{{ n }} + "%) contrast(" + this.value + "%)";
+            });
+            slider3_{{ s+1 }}_{{ n }}.addEventListener("input", function (e) {
+              opacity_{{ s+1 }}_{{ n }} = e.target.value;
+              opacitySpan_{{ s+1 }}_{{ n }}.textContent = opacity_{{ s+1 }}_{{ n }} + "%";
+              map_{{ s+1 }}_{{ n }}.getContainer().style.filter = "hue-rotate(" + hue_{{ s+1 }}_{{ n }} + "deg) opacity(" + this.value + "%) brightness(" + brightness_{{ s+1 }}_{{ n }} + "%) contrast(" + contrast_{{ s+1 }}_{{ n }} + "%)";
+            });
+            slider4_{{ s+1 }}_{{ n }}.addEventListener("input", function (e) {
+              hue_{{ s+1 }}_{{ n }} = e.target.value;
+              hueSpan_{{ s+1 }}_{{ n }}.textContent = hue_{{ s+1 }}_{{ n }} + " degrees";
+              map_{{ s+1 }}_{{ n }}.getContainer().style.filter = "hue-rotate(" + this.value + "deg) opacity(" + opacity_{{ s+1 }}_{{ n }} + "%) brightness(" + brightness_{{ s+1 }}_{{ n }} + "%) contrast(" + contrast_{{ s+1 }}_{{ n }} + "%)";
+            });
+          {% endfor %}
+        {% endfor %}
+      }
+
+      
+
+
+      var baseLayers = { "Histolayer": histolayer };
+
+      var count = 0;
+      var nameToObjectMap = new Map();
+
+      {% for n in layers %}
+        nameToObjectMap.set("{{ n }}", completedLayers[count]);
+        count = count + 1;
+      {% endfor %}
+      console.log("nameToObjectMap:");
+      console.log(nameToObjectMap);
+      console.log("nameToObjectMap.has(pimo)? ");
+      console.log(nameToObjectMap.has("pimo"));
+  
+      var overlays = {
+        "Source Labels": sourcelabels,
+        "Annotations": drawnItems,
+        // {% for n in layers %}
+          //"{{ n }}": nameToObjectMap.get({{ n }}),
+        //{% endfor %}
+      };
+      addLayerToOverlays();
+
+      function addLayerToOverlays() {
+        {% for n in layers %}
+          overlays['{{ n }}'] = nameToObjectMap.get("{{ n }}");
+        {% endfor %}
+      } 
+
+      L.control.layers(
+        { 'histo': histolayer },
+        overlays,
+        { position: 'topleft', collapsed: true }).addTo(map);
+      map.addControl(new L.Control.Draw({
+        edit: {
+          featureGroup: drawnItems,
+          poly: { allowIntersection: false }
+        },
+        draw: {
+          polygon: {
+            allowIntersection: false,
+            showArea: true
+          }
+        }
+      }));
+      // load server data
+      getJSONData("9999", drawnItems);
+  
+      // define event hooks to save data etc.
+      map.on('draw:drawstart draw:editstart draw:deletestart', function (event) {
+        $("#serverstatus")[0].innerHTML = "NOT YET SAVED";
+      });
+      map.on('draw:created', function (event) {
+        var layer = event.layer;
+        drawnItems.addLayer(layer);
+        postJSONData(JSON.stringify(drawnItems.toGeoJSON()), "9999");
+      });
+      map.on('draw:edited draw:deleted', function (event) {
+        var layer = event.layer;
+        postJSONData(JSON.stringify(drawnItems.toGeoJSON()), "9999");
+      });
+  
+      // https://gis.stackexchange.com/questions/59571/how-to-add-text-only-labels-on-leaflet-map-with-no-icon
+      //opacity may be set to zero for no marker
+      var marker = new L.marker([-50, 50], { opacity: 0.5 });
+      marker.bindTooltip("some histoname", {
+        permanent: true, className: "my-label", offset: [0, 0]
+      });
+      marker.addTo(sourcelabels);
+    </script>
+  </body>
+  
+  </html>

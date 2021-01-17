@@ -1,0 +1,17 @@
+---
+# number of different slices 
+numslices: 3
+
+# number of files per slice (i.e. number of different layers)
+numfiles: 3
+
+# LayerNames in the same order as the image stack, e.g. ["filename1", "filename2", "filename3", ...]
+# used to name the folders that store the tiles
+# should be equal in number to numfiles
+layernames: ["pimo", "carbo", "CD31"]
+
+# Colours for each of the corresponding images (in order), as a hue value (will be applied on top of sepia colour)
+colours: [60, 90, 0]
+
+
+

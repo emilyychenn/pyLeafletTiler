@@ -1,0 +1,10 @@
+square_img.jpg
+square_image.jpg
+test_image.jpg
+test_img2.jpg
+.idea
+*.ztif
+*.tif
+tiles/
+padded_image.jpg
+tiles/slices
