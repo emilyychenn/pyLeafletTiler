@@ -1,5 +1,5 @@
 # pyLeafletTiler
-Collection of code to create tiles of histo images to allow display using the [leaflet JavaScript library](https://leafletjs.com/). 
+Collection of code to create tiles of histo images to allow display using the [leaflet JavaScript library](https://leafletjs.com/).
 
 The images can be viewed at different zoom levels, and individual layers can be toggled on/off to show or hide the layer. Markers and annotations can be added (e.g. to indicate ROIs) at different zoom levels, and each layer's brightness, contrast, opacity, and hue are manually adjustable.
 
@@ -57,5 +57,5 @@ The program must currently be run by first entering ```python3 -m http.server```
     - 60 = green
     - 90 = light blue
 4. Tile the files using the command ```LeafletTiler.py LeafletTiler.py (--directory=<targetdir>) tile [FILE]```. This will save the tiles to a folder named 'tiles' within the specified directory. Alternatively, you can skip the above steps using an ImageJ stack (TIFF File) and pass it into ```LeafletTiler.py [--directory=<targetdir>] colourAndTileTiff (--tiffFilePath=<filepath>) [--newFolderNames=<folders>] [--clean]``` to expand, colour, add padding, and save the tiff in the appropriate directories as specified in the config file (docopt input will overwrite config file if there is input entered).
-5. Enter ```python3 -m http.server``` into your terminal.
+5. Run ```python3 -m http.server``` in terminal.
 6. Create a new terminal window, and enter ```python LeafletTiler.py -r``` or ```python LeafletTiler.py --run```. Then navigate to the given address (e.g. http://127.0.0.1:5000) to view the running application!
